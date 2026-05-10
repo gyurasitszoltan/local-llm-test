@@ -1,0 +1,65 @@
+Geforce RTX 4070 12G VRAM
+Ryzen 5 3600 6 core - 32G RAM
+
+git clone https://github.com/TheTom/llama-cpp-turboquant.git
+cd llama-cpp-turboquant
+wget https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf?download=true
+cmake -B build -DGGML_CUDA=ON
+cmake --build build --config Release
+./build/bin/llama-server -m ./Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf --port 8080 --host 0.0.0.0 --cache-type-k turbo4 --cache-type-v turbo3 --n-cpu-moe 25 -ngl 99 --no-mmap --mlock --jinja -c 256000
+
+
+OpenCode setup
+
+Get model ID
+http://192.168.1.68:8080/v1/models
+
+{
+  "models": [
+    {
+      "name": "Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf",
+      "model": "Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf",
+      "modified_at": "",
+      "size": "",
+      "digest": "",
+      "type": "model",
+      "description": "",
+      "tags": [
+        ""
+      ],
+      "capabilities": [
+        "completion"
+      ],
+      "parameters": "",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "",
+        "families": [
+          ""
+        ],
+        "parameter_size": "",
+        "quantization_level": ""
+      }
+    }
+  ],
+  "object": "list",
+  "data": [
+    {
+      "id": "Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf",
+      "aliases": [],
+      "tags": [],
+      "object": "model",
+      "created": 1778408610,
+      "owned_by": "llamacpp",
+      "meta": {
+        "vocab_type": 2,
+        "n_vocab": 248320,
+        "n_ctx_train": 262144,
+        "n_embd": 2048,
+        "n_params": 34660610688,
+        "size": 21380459008
+      }
+    }
+  ]
+}

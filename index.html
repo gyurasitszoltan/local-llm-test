@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kanban Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #0f1117;
+  color: #c9d1d9;
+  overflow: hidden;
+}
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+input, textarea, select {
+  font-family: inherit;
+  color: inherit;
+  border: none;
+  outline: none;
+}
+
+/* ============================================================
+   BOARD LAYOUT
+   ============================================================ */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Top bar */
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: rgba(22, 27, 34, 0.95);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.top-bar h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e6edf3;
+  margin-right: auto;
+  white-space: nowrap;
+}
+.search-input {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  width: 220px;
+  transition: border-color 0.2s;
+}
+.search-input:focus {
+  border-color: rgba(88,166,255,0.5);
+}
+.search-input::placeholder { color: #6e7681; }
+.priority-filter {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #c9d1d9;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.priority-filter:focus { border-color: rgba(88,166,255,0.5); }
+.priority-filter option { background: #161b22; color: #c9d1d9; }
+
+/* Board */
+.board {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  overflow-x: auto;
+  flex: 1;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+}
+.board::-webkit-scrollbar { height: 8px; }
+.board::-webkit-scrollbar-track { background: transparent; }
+.board::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+/* ============================================================
+   COLUMNS
+   ============================================================ */
+.column {
+  flex: 0 0 300px;
+  min-height: 200px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  transition: box-shadow 0.2s;
+  overflow: hidden;
+}
+.column.drag-over {
+  box-shadow: 0 0 0 2px rgba(88,166,255,0.5), 0 4px 24px rgba(88,166,255,0.15);
+  animation: dropPulse 1s ease-in-out infinite;
+}
+@keyframes dropPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(88,166,255,0.4), 0 4px 24px rgba(88,166,255,0.12); }
+  50% { box-shadow: 0 0 0 2px rgba(88,166,255,0.7), 0 4px 24px rgba(88,166,255,0.25); }
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 14px 8px;
+  user-select: none;
+  flex-shrink: 0;
+}
+.column-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e6edf3;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.column-title-input {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e6edf3;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(88,166,255,0.4);
+  border-radius: 4px;
+  padding: 2px 6px;
+  width: 100%;
+}
+.column-delete {
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: #f85149;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.column:hover .column-delete { opacity: 1; }
+.column-delete:hover { background: rgba(248,81,73,0.15); }
+
+.column-count {
+  font-size: 11px;
+  color: #6e7681;
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-weight: 500;
+}
+
+/* Cards container */
+.cards-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 10px;
+  min-height: 60px;
+}
+.cards-container::-webkit-scrollbar { width: 4px; }
+.cards-container::-webkit-scrollbar-track { background: transparent; }
+.cards-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: grab;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.3s, background 0.2s;
+  position: relative;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  background: rgba(255,255,255,0.08);
+}
+.card.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+.card.done-card {
+  opacity: 0.6;
+}
+.card.done-card .card-title {
+  text-decoration: line-through;
+  color: #6e7681;
+}
+.card.fade-out {
+  opacity: 0;
+  transform: scale(0.95) translateY(-10px);
+  pointer-events: none;
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e6edf3;
+  flex: 1;
+  line-height: 1.4;
+}
+.card-delete {
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: #f85149;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.card:hover .card-delete { opacity: 1; }
+.card-delete:hover { background: rgba(248,81,73,0.2); }
+
+.card-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.priority-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.priority-badge.low { background: rgba(63,185,80,0.15); color: #3fb950; }
+.priority-badge.medium { background: rgba(187,128,9,0.15); color: #bf8009; }
+.priority-badge.high { background: rgba(248,81,73,0.15); color: #f85149; }
+
+.due-date {
+  font-size: 11px;
+  color: #6e7681;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.due-date.overdue { color: #f85149; }
+.due-date .warning { font-size: 12px; }
+
+.card-description-toggle {
+  font-size: 11px;
+  color: #58a6ff;
+  margin-top: 6px;
+  cursor: pointer;
+  display: inline-block;
+}
+.card-description-toggle:hover { text-decoration: underline; }
+.card-description {
+  font-size: 12px;
+  color: #8b949e;
+  margin-top: 4px;
+  line-height: 1.5;
+  display: none;
+  word-break: break-word;
+}
+.card-description.visible { display: block; }
+
+/* Card placeholder (for filtered-out cards) */
+.card-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ============================================================
+   ADD CARD / ADD COLUMN BUTTONS
+   ============================================================ */
+.add-card-btn, .add-column-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  margin: 0 10px 10px;
+  font-size: 13px;
+  color: #8b949e;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.add-card-btn:hover, .add-column-btn:hover {
+  color: #e6edf3;
+  background: rgba(255,255,255,0.06);
+}
+.add-card-btn .plus, .add-column-btn .plus {
+  font-size: 16px;
+  font-weight: 300;
+}
+
+.add-column-area {
+  flex: 0 0 300px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+.add-column-btn {
+  width: 280px;
+}
+
+/* ============================================================
+   INLINE FORM
+   ============================================================ */
+.card-form {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(88,166,255,0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.card-form input,
+.card-form textarea,
+.card-form select {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  margin-bottom: 6px;
+  transition: border-color 0.2s;
+  color: #c9d1d9;
+}
+.card-form input:focus,
+.card-form textarea:focus,
+.card-form select:focus {
+  border-color: rgba(88,166,255,0.5);
+}
+.card-form input::placeholder,
+.card-form textarea::placeholder { color: #484f58; }
+.card-form select { cursor: pointer; }
+.card-form select option { background: #161b22; color: #c9d1d9; }
+.card-form textarea { resize: vertical; min-height: 50px; }
+.card-form-row {
+  display: flex;
+  gap: 8px;
+}
+.card-form-row > * { flex: 1; }
+.card-form-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.btn-save {
+  background: rgba(88,166,255,0.2);
+  color: #58a6ff;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.btn-save:hover { background: rgba(88,166,255,0.3); }
+.btn-cancel {
+  background: rgba(255,255,255,0.06);
+  color: #8b949e;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.btn-cancel:hover { background: rgba(255,255,255,0.1); }
+
+/* ============================================================
+   STATISTICS BAR
+   ============================================================ */
+.stats-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 10px 20px;
+  background: rgba(22, 27, 34, 0.95);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.stat-item {
+  font-size: 12px;
+  color: #6e7681;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.stat-item .stat-value {
+  font-weight: 700;
+  color: #e6edf3;
+  font-size: 14px;
+}
+.stat-item.overdue .stat-value { color: #f85149; }
+.stat-item.completion .stat-value { color: #3fb950; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+  .top-bar { padding: 10px 12px; gap: 8px; }
+  .top-bar h1 { font-size: 15px; width: 100%; }
+  .search-input { width: 100%; }
+  .column { flex: 0 0 260px; }
+  .board { padding: 12px; gap: 12px; }
+  .stats-bar { gap: 14px; padding: 8px 12px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <h1>Kanban Board</h1>
+    <input type="text" class="search-input" id="searchInput" placeholder="Search cards...">
+    <select class="priority-filter" id="priorityFilter">
+      <option value="all">All Priorities</option>
+      <option value="low">Low</option>
+      <option value="medium">Medium</option>
+      <option value="high">High</option>
+    </select>
+  </div>
+
+  <!-- Board -->
+  <div class="board" id="board"></div>
+
+  <!-- Statistics Bar -->
+  <div class="stats-bar" id="statsBar"></div>
+</div>
+
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+const STORAGE_KEY = 'kanban-board-state';
+
+let state = {
+  columns: [],
+  searchQuery: '',
+  priorityFilter: 'all'
+};
+
+let draggedCardId = null;
+
+/* ============================================================
+   DEFAULT / EXAMPLE DATA
+   ============================================================ */
+function getDefaultState() {
+  const today = new Date();
+  const fmt = d => d.toISOString().split('T')[0];
+  const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+
+  return {
+    columns: [
+      {
+        id: genId(),
+        title: 'Backlog',
+        cards: [
+          { id: genId(), title: 'Research competitor features', description: 'Analyze top 3 competitors and document their key features', priority: 'medium', dueDate: fmt(addDays(today, 7)), done: false },
+          { id: genId(), title: 'Define API contract', description: '', priority: 'high', dueDate: fmt(addDays(today, 14)), done: false },
+        ]
+      },
+      {
+        id: genId(),
+        title: 'To Do',
+        cards: [
+          { id: genId(), title: 'Set up CI/CD pipeline', description: 'Configure GitHub Actions for automated testing and deployment', priority: 'high', dueDate: fmt(addDays(today, 3)), done: false },
+          { id: genId(), title: 'Write unit tests for auth module', description: '', priority: 'medium', dueDate: fmt(addDays(today, 5)), done: false },
+        ]
+      },
+      {
+        id: genId(),
+        title: 'In Progress',
+        cards: [
+          { id: genId(), title: 'Implement dark mode toggle', description: 'Add theme switcher with localStorage persistence', priority: 'low', dueDate: fmt(addDays(today, -2)), done: false },
+          { id: genId(), title: 'Refactor database queries', description: 'Optimize N+1 queries in user dashboard', priority: 'medium', dueDate: fmt(addDays(today, 1)), done: false },
+        ]
+      },
+      {
+        id: genId(),
+        title: 'Done',
+        cards: [
+          { id: genId(), title: 'Project kickoff meeting', description: 'Initial sync with stakeholders', priority: 'low', dueDate: fmt(addDays(today, -5)), done: true },
+          { id: genId(), title: 'Design system v1', description: '', priority: 'high', dueDate: fmt(addDays(today, -3)), done: true },
+        ]
+      }
+    ]
+  };
+}
+
+/* ============================================================
+   PERSISTENCE
+   ============================================================ */
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn('Failed to save state:', e);
+  }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.columns && parsed.columns.length > 0) {
+        state = parsed;
+        return true;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load state:', e);
+  }
+  return false;
+}
+
+/* ============================================================
+   ID GENERATOR
+   ============================================================ */
+let _idCounter = 0;
+function genId() {
+  _idCounter++;
+  return 'id-' + Date.now().toString(36) + '-' + _idCounter;
+}
+
+/* ============================================================
+   RENDERING
+   ============================================================ */
+const boardEl = document.getElementById('board');
+const searchInput = document.getElementById('searchInput');
+const priorityFilter = document.getElementById('priorityFilter');
+const statsBar = document.getElementById('statsBar');
+
+function render() {
+  renderBoard();
+  renderStats();
+}
+
+function renderBoard() {
+  boardEl.innerHTML = '';
+
+  state.columns.forEach(col => {
+    const colEl = createColumn(col);
+    boardEl.appendChild(colEl);
+  });
+
+  // Add column button area
+  const addColArea = document.createElement('div');
+  addColArea.className = 'add-column-area';
+  const addColBtn = document.createElement('button');
+  addColBtn.className = 'add-column-btn';
+  addColBtn.innerHTML = '<span class="plus">＋</span> Add Column';
+  addColBtn.addEventListener('click', addColumn);
+  addColArea.appendChild(addColBtn);
+  boardEl.appendChild(addColArea);
+}
+
+function createColumn(col) {
+  const colEl = document.createElement('div');
+  colEl.className = 'column';
+  colEl.dataset.columnId = col.id;
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'column-header';
+
+  const titleEl = document.createElement('span');
+  titleEl.className = 'column-title';
+  titleEl.textContent = col.title;
+
+  const countEl = document.createElement('span');
+  countEl.className = 'column-count';
+  countEl.textContent = col.cards.length;
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'column-delete';
+  delBtn.innerHTML = '&#x2715;';
+  delBtn.title = 'Delete column (must be empty)';
+  delBtn.addEventListener('click', () => deleteColumn(col.id));
+
+  header.appendChild(titleEl);
+  header.appendChild(countEl);
+  header.appendChild(delBtn);
+
+  // Double-click to rename
+  header.addEventListener('dblclick', (e) => {
+    if (e.target === delBtn) return;
+    startRenameColumn(col.id, titleEl, countEl);
+  });
+
+  colEl.appendChild(header);
+
+  // Cards container
+  const cardsContainer = document.createElement('div');
+  cardsContainer.className = 'cards-container';
+  cardsContainer.dataset.columnId = col.id;
+
+  // Drag over handlers for column
+  cardsContainer.addEventListener('dragover', handleDragOver);
+  cardsContainer.addEventListener('dragleave', handleDragLeave);
+  cardsContainer.addEventListener('drop', handleDrop);
+
+  col.cards.forEach(card => {
+    const cardEl = createCard(card, col);
+    cardsContainer.appendChild(cardEl);
+  });
+
+  colEl.appendChild(cardsContainer);
+
+  // Add card button
+  const addCardBtn = document.createElement('button');
+  addCardBtn.className = 'add-card-btn';
+  addCardBtn.innerHTML = '<span class="plus">＋</span> Add card';
+  addCardBtn.addEventListener('click', () => showAddCardForm(col.id, cardsContainer));
+  colEl.appendChild(addCardBtn);
+
+  return colEl;
+}
+
+function createCard(card, col) {
+  const cardEl = document.createElement('div');
+  cardEl.className = 'card';
+  if (card.done) cardEl.classList.add('done-card');
+  cardEl.draggable = true;
+  cardEl.dataset.cardId = card.id;
+
+  // Drag events
+  cardEl.addEventListener('dragstart', handleDragStart);
+  cardEl.addEventListener('dragend', handleDragEnd);
+
+  // Card header (title + delete)
+  const header = document.createElement('div');
+  header.className = 'card-header';
+
+  const title = document.createElement('span');
+  title.className = 'card-title';
+  title.textContent = card.title;
+
+  const del = document.createElement('button');
+  del.className = 'card-delete';
+  del.innerHTML = '&#x2715;';
+  del.title = 'Delete card';
+  del.addEventListener('click', (e) => {
+    e.stopPropagation();
+    deleteCard(card.id, col.id, cardEl);
+  });
+
+  header.appendChild(title);
+  header.appendChild(del);
+  cardEl.appendChild(header);
+
+  // Badges
+  const badges = document.createElement('div');
+  badges.className = 'card-badges';
+
+  const priorityBadge = document.createElement('span');
+  priorityBadge.className = `priority-badge ${card.priority}`;
+  priorityBadge.textContent = card.priority;
+  badges.appendChild(priorityBadge);
+
+  if (card.dueDate) {
+    const dueEl = document.createElement('span');
+    dueEl.className = 'due-date';
+    const isOverdue = !card.done && isPastDate(card.dueDate);
+    if (isOverdue) dueEl.classList.add('overdue');
+    dueEl.innerHTML = formatDate(card.dueDate);
+    if (isOverdue) dueEl.innerHTML = '<span class="warning">&#9888;</span> ' + formatDate(card.dueDate);
+    badges.appendChild(dueEl);
+  }
+
+  cardEl.appendChild(badges);
+
+  // Description toggle
+  if (card.description) {
+    const descToggle = document.createElement('div');
+    descToggle.className = 'card-description-toggle';
+    descToggle.textContent = 'Description';
+    descToggle.addEventListener('click', () => {
+      descEl.classList.toggle('visible');
+      descToggle.textContent = descEl.classList.contains('visible') ? 'Hide description' : 'Description';
+    });
+    cardEl.appendChild(descToggle);
+
+    const descEl = document.createElement('div');
+    descEl.className = 'card-description';
+    descEl.textContent = card.description;
+    cardEl.appendChild(descEl);
+  }
+
+  return cardEl;
+}
+
+/* ============================================================
+   ADD / DELETE COLUMNS
+   ============================================================ */
+function addColumn() {
+  const title = prompt('Enter column title:');
+  if (!title || !title.trim()) return;
+  state.columns.push({
+    id: genId(),
+    title: title.trim(),
+    cards: []
+  });
+  saveState();
+  render();
+}
+
+function deleteColumn(colId) {
+  const col = state.columns.find(c => c.id === colId);
+  if (!col) return;
+  if (col.cards.length > 0) {
+    alert('Cannot delete a column that contains cards.');
+    return;
+  }
+  if (!confirm(`Delete column "${col.title}"?`)) return;
+  state.columns = state.columns.filter(c => c.id !== colId);
+  saveState();
+  render();
+}
+
+function startRenameColumn(colId, titleEl, countEl) {
+  const col = state.columns.find(c => c.id === colId);
+  if (!col) return;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'column-title-input';
+  input.value = col.title;
+  input.addEventListener('blur', () => finishRename(colId, input, titleEl, countEl));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.value = col.title; input.blur(); }
+  });
+
+  titleEl.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+function finishRename(colId, input, titleEl, countEl) {
+  const val = input.value.trim();
+  if (!val) return;
+  const col = state.columns.find(c => c.id === colId);
+  if (col) {
+    col.title = val;
+    saveState();
+  }
+  const newTitle = document.createElement('span');
+  newTitle.className = 'column-title';
+  newTitle.textContent = val;
+  input.replaceWith(newTitle);
+  render();
+}
+
+/* ============================================================
+   ADD / DELETE CARDS
+   ============================================================ */
+function showAddCardForm(colId, cardsContainer) {
+  const form = document.createElement('div');
+  form.className = 'card-form';
+  form.innerHTML = `
+    <input type="text" class="form-title" placeholder="Card title *" required>
+    <div class="card-form-row">
+      <select class="form-priority">
+        <option value="low">Low</option>
+        <option value="medium" selected>Medium</option>
+        <option value="high">High</option>
+      </select>
+      <input type="date" class="form-due">
+    </div>
+    <textarea class="form-desc" placeholder="Description (optional)" rows="2"></textarea>
+    <div class="card-form-actions">
+      <button class="btn-save form-save">Save</button>
+      <button class="btn-cancel form-cancel">Cancel</button>
+    </div>
+  `;
+  cardsContainer.appendChild(form);
+
+  const titleInput = form.querySelector('.form-title');
+  const saveBtn = form.querySelector('.form-save');
+  const cancelBtn = form.querySelector('.form-cancel');
+
+  titleInput.focus();
+
+  const save = () => {
+    const title = titleInput.value.trim();
+    if (!title) {
+      titleInput.style.borderColor = 'rgba(248,81,73,0.6)';
+      titleInput.focus();
+      return;
+    }
+    const col = state.columns.find(c => c.id === colId);
+    if (!col) return;
+    const newCard = {
+      id: genId(),
+      title: title,
+      description: form.querySelector('.form-desc').value.trim(),
+      priority: form.querySelector('.form-priority').value,
+      dueDate: form.querySelector('.form-due').value || null,
+      done: false
+    };
+    col.cards.push(newCard);
+    saveState();
+    render();
+  };
+
+  saveBtn.addEventListener('click', save);
+  titleInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+  cancelBtn.addEventListener('click', () => { form.remove(); });
+}
+
+function deleteCard(cardId, colId, cardEl) {
+  cardEl.classList.add('fade-out');
+  cardEl.addEventListener('transitionend', () => {
+    const col = state.columns.find(c => c.id === colId);
+    if (col) {
+      col.cards = col.cards.filter(c => c.id !== cardId);
+      saveState();
+      render();
+    }
+  });
+}
+
+/* ============================================================
+   DRAG & DROP (HTML5)
+   ============================================================ */
+function handleDragStart(e) {
+  draggedCardId = e.currentTarget.dataset.cardId;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', draggedCardId);
+}
+
+function handleDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  draggedCardId = null;
+  // Remove all drag-over states
+  document.querySelectorAll('.column.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const colEl = e.currentTarget.closest('.column');
+  colEl.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+  const colEl = e.currentTarget.closest('.column');
+  // Only remove if actually leaving the column
+  if (!colEl.contains(e.relatedTarget)) {
+    colEl.classList.remove('drag-over');
+  }
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  const colEl = e.currentTarget.closest('.column');
+  colEl.classList.remove('drag-over');
+
+  const cardId = e.dataTransfer.getData('text/plain');
+  const targetColId = e.currentTarget.dataset.columnId;
+
+  if (!cardId || !targetColId) return;
+
+  // Find source column and card
+  let sourceCol = null;
+  let card = null;
+  for (const col of state.columns) {
+    const found = col.cards.find(c => c.id === cardId);
+    if (found) {
+      sourceCol = col;
+      card = found;
+      break;
+    }
+  }
+  if (!sourceCol || !card) return;
+
+  const targetCol = state.columns.find(c => c.id === targetColId);
+  if (!targetCol) return;
+
+  // Remove from source
+  sourceCol.cards = sourceCol.cards.filter(c => c.id !== cardId);
+
+  // Auto-set done when dropping into Done column
+  const doneCol = state.columns.find(c => c.title.toLowerCase() === 'done');
+  if (doneCol && doneCol.id === targetColId) {
+    card.done = true;
+  }
+
+  // Determine insert position based on drop target
+  const cardsContainer = e.currentTarget;
+  const afterElement = getDragAfterElement(cardsContainer, e.clientY);
+  if (afterElement) {
+    const afterCardId = afterElement.dataset.cardId;
+    const insertIndex = targetCol.cards.findIndex(c => c.id === afterCardId);
+    targetCol.cards.splice(insertIndex, 0, card);
+  } else {
+    targetCol.cards.push(card);
+  }
+
+  saveState();
+  render();
+}
+
+function getDragAfterElement(container, y) {
+  const cards = [...container.querySelectorAll('.card:not(.dragging):not(.card-placeholder)')];
+  let closest = null;
+  let closestOffset = Number.NEGATIVE_INFINITY;
+
+  cards.forEach(child => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closestOffset) {
+      closestOffset = offset;
+      closest = child;
+    }
+  });
+
+  return closest;
+}
+
+/* ============================================================
+   FILTERING & SEARCH
+   ============================================================ */
+function applyFilters() {
+  state.searchQuery = searchInput.value.trim().toLowerCase();
+  state.priorityFilter = priorityFilter.value;
+
+  document.querySelectorAll('.card').forEach(cardEl => {
+    const cardId = cardEl.dataset.cardId;
+    let visible = true;
+
+    // Search filter
+    if (state.searchQuery) {
+      const card = findCardById(cardId);
+      if (card && !card.title.toLowerCase().includes(state.searchQuery)) {
+        visible = false;
+      }
+    }
+
+    // Priority filter
+    if (visible && state.priorityFilter !== 'all') {
+      const card = findCardById(cardId);
+      if (card && card.priority !== state.priorityFilter) {
+        visible = false;
+      }
+    }
+
+    if (visible) {
+      cardEl.classList.remove('card-placeholder');
+    } else {
+      cardEl.classList.add('card-placeholder');
+    }
+  });
+}
+
+function findCardById(cardId) {
+  for (const col of state.columns) {
+    const found = col.cards.find(c => c.id === cardId);
+    if (found) return found;
+  }
+  return null;
+}
+
+searchInput.addEventListener('input', applyFilters);
+priorityFilter.addEventListener('change', applyFilters);
+
+/* ============================================================
+   STATISTICS BAR
+   ============================================================ */
+function renderStats() {
+  let total = 0;
+  let overdue = 0;
+  let done = 0;
+
+  state.columns.forEach(col => {
+    col.cards.forEach(card => {
+      total++;
+      if (card.done) done++;
+      if (card.dueDate && !card.done && isPastDate(card.dueDate)) overdue++;
+    });
+  });
+
+  const rate = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  statsBar.innerHTML = `
+    <div class="stat-item">
+      <span class="stat-value">${total}</span> Total cards
+    </div>
+    <div class="stat-item overdue">
+      <span class="stat-value">${overdue}</span> Overdue
+    </div>
+    <div class="stat-item">
+      <span class="stat-value">${done}</span> Done
+    </div>
+    <div class="stat-item completion">
+      <span class="stat-value">${rate}%</span> Completion
+    </div>
+  `;
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function isPastDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d < today;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  const options = { month: 'short', day: 'numeric', year: 'numeric' };
+  return d.toLocaleDateString('en-US', options);
+}
+
+/* ============================================================
+   INITIALIZATION
+   ============================================================ */
+(function init() {
+  const loaded = loadState();
+  if (!loaded) {
+    state = getDefaultState();
+    saveState();
+  }
+  // Restore filter/search from saved state
+  if (state.searchQuery) searchInput.value = state.searchQuery;
+  if (state.priorityFilter) priorityFilter.value = state.priorityFilter;
+
+  render();
+})();
+</script>
+</body>
+</html>
