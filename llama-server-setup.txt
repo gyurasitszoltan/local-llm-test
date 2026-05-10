@@ -6,7 +6,7 @@ cd llama-cpp-turboquant
 wget https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf?download=true
 cmake -B build -DGGML_CUDA=ON
 cmake --build build --config Release
-./build/bin/llama-server -m ./Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf --port 8080 --host 0.0.0.0 --cache-type-k turbo4 --cache-type-v turbo3 --n-cpu-moe 25 -ngl 99 --no-mmap --mlock --jinja -c 256000
+./build/bin/llama-server -m ./Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf --port 8080 --host 0.0.0.0 --cache-type-k turbo4 --cache-type-v turbo3 --n-cpu-moe 25 -ngl 999 --no-mmap --mlock --jinja -c 256000
 
 
 OpenCode setup
