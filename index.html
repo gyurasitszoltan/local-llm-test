@@ -246,6 +246,18 @@ input, textarea, select {
 }
 .card:hover .card-delete { opacity: 1; }
 .card-delete:hover { background: rgba(248,81,73,0.2); }
+.card-edit {
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: #58a6ff;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.card:hover .card-edit { opacity: 1; }
+.card-edit:hover { background: rgba(88,166,255,0.2); }
 
 .card-badges {
   display: flex;
@@ -670,6 +682,15 @@ function createCard(card, col) {
   title.className = 'card-title';
   title.textContent = card.title;
 
+  const editBtn = document.createElement('button');
+  editBtn.className = 'card-edit';
+  editBtn.innerHTML = '&#x270E;';
+  editBtn.title = 'Edit card';
+  editBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showEditCardForm(card.id, col.id, cardEl);
+  });
+
   const del = document.createElement('button');
   del.className = 'card-delete';
   del.innerHTML = '&#x2715;';
@@ -680,6 +701,7 @@ function createCard(card, col) {
   });
 
   header.appendChild(title);
+  header.appendChild(editBtn);
   header.appendChild(del);
   cardEl.appendChild(header);
 
@@ -841,6 +863,65 @@ function showAddCardForm(colId, cardsContainer) {
   saveBtn.addEventListener('click', save);
   titleInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
   cancelBtn.addEventListener('click', () => { form.remove(); });
+}
+
+function showEditCardForm(cardId, colId, cardEl) {
+  const col = state.columns.find(c => c.id === colId);
+  if (!col) return;
+  const card = col.cards.find(c => c.id === cardId);
+  if (!card) return;
+
+  // Hide the original card during edit
+  cardEl.style.display = 'none';
+
+  const form = document.createElement('div');
+  form.className = 'card-form';
+  form.innerHTML = `
+    <input type="text" class="form-title" placeholder="Card title *" required value="${escapeHtml(card.title)}">
+    <div class="card-form-row">
+      <select class="form-priority">
+        <option value="low" ${card.priority === 'low' ? 'selected' : ''}>Low</option>
+        <option value="medium" ${card.priority === 'medium' ? 'selected' : ''}>Medium</option>
+        <option value="high" ${card.priority === 'high' ? 'selected' : ''}>High</option>
+      </select>
+      <input type="date" class="form-due" value="${card.dueDate || ''}">
+    </div>
+    <textarea class="form-desc" placeholder="Description (optional)" rows="2">${escapeHtml(card.description)}</textarea>
+    <div class="card-form-actions">
+      <button class="btn-save form-save">Save</button>
+      <button class="btn-cancel form-cancel">Cancel</button>
+    </div>
+  `;
+  cardsContainerForCol(colId).insertBefore(form, cardEl);
+
+  const titleInput = form.querySelector('.form-title');
+  const saveBtn = form.querySelector('.form-save');
+  const cancelBtn = form.querySelector('.form-cancel');
+
+  titleInput.focus();
+  titleInput.select();
+
+  const save = () => {
+    const title = titleInput.value.trim();
+    if (!title) {
+      titleInput.style.borderColor = 'rgba(248,81,73,0.6)';
+      titleInput.focus();
+      return;
+    }
+    card.title = title;
+    card.description = form.querySelector('.form-desc').value.trim();
+    card.priority = form.querySelector('.form-priority').value;
+    card.dueDate = form.querySelector('.form-due').value || null;
+    saveState();
+    render();
+  };
+
+  saveBtn.addEventListener('click', save);
+  titleInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+  cancelBtn.addEventListener('click', () => {
+    form.remove();
+    cardEl.style.display = '';
+  });
 }
 
 function deleteCard(cardId, colId, cardEl) {
@@ -1049,6 +1130,17 @@ function formatDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   const options = { month: 'short', day: 'numeric', year: 'numeric' };
   return d.toLocaleDateString('en-US', options);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function cardsContainerForCol(colId) {
+  const colEl = boardEl.querySelector(`.column[data-column-id="${colId}"]`);
+  return colEl ? colEl.querySelector('.cards-container') : null;
 }
 
 /* ============================================================
